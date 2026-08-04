@@ -11,24 +11,28 @@ import { DocumentUploader } from '@/components/document-uploader'
 import {
   ArrowLeft,
   FileText,
-  CheckCircle,
-  AlertCircle,
-  XCircle,
-  Clock,
   Download,
   Play,
   Trash2,
   History,
   Eye,
+  AlertCircle,
+  CheckCircle2,
 } from 'lucide-react'
-import { formatDate } from '@/lib/utils'
+import { formatDate, formatFileSize, cn } from '@/lib/utils'
+import {
+  VerdictBadge,
+  getVerdict,
+  documentTypeLabel,
+  parseProblems,
+} from '@/components/verdict'
 
 interface Document {
   id: string
   nomFichier: string
   typeDocument: string | null
   statutDocument: string
-  problemesDetectes: string[]
+  problemesDetectes: string[] | string
   dateVerification: string | null
   tailleFichier: number
   createdAt: string
@@ -51,23 +55,7 @@ interface Dossier {
   analyseLogs: AnalyseLog[]
 }
 
-function getStatusIcon(status: string) {
-  switch (status) {
-    case 'VERT':
-    case 'VALIDE':
-      return <CheckCircle className="h-5 w-5 text-green-500" />
-    case 'ORANGE':
-    case 'INCERTAIN':
-      return <AlertCircle className="h-5 w-5 text-amber-500" />
-    case 'ROUGE':
-    case 'REFUSE':
-      return <XCircle className="h-5 w-5 text-red-500" />
-    default:
-      return <Clock className="h-5 w-5 text-gray-400" />
-  }
-}
-
-function getStatusLabel(status: string) {
+function verdictHeadline(status: string): string {
   switch (status) {
     case 'VERT':
       return 'Prêt à signer'
@@ -75,39 +63,22 @@ function getStatusLabel(status: string) {
       return 'À vérifier'
     case 'ROUGE':
       return 'Non conforme'
-    case 'VALIDE':
-      return 'Valide'
-    case 'INCERTAIN':
-      return 'À vérifier'
-    case 'REFUSE':
-      return 'Non conforme'
     default:
-      return 'En attente'
+      return 'En attente d\'analyse'
   }
 }
 
-function getStatusBadgeClass(status: string) {
+function verdictSubline(status: string): string {
   switch (status) {
     case 'VERT':
-    case 'VALIDE':
-      return 'bg-green-100 text-green-800 border-green-200'
+      return 'Aucun point bloquant détecté par le moteur de règles sur les documents fournis.'
     case 'ORANGE':
-    case 'INCERTAIN':
-      return 'bg-amber-100 text-amber-800 border-amber-200'
+      return 'Certains documents demandent une vérification humaine avant signature.'
     case 'ROUGE':
-    case 'REFUSE':
-      return 'bg-red-100 text-red-800 border-red-200'
+      return 'Au moins un document est non conforme : le dossier ne doit pas être signé en l\'état.'
     default:
-      return 'bg-gray-100 text-gray-800 border-gray-200'
+      return 'Uploadez les diagnostics puis lancez l\'analyse pour obtenir le verdict.'
   }
-}
-
-function formatFileSize(bytes: number): string {
-  if (bytes === 0) return '0 B'
-  const k = 1024
-  const sizes = ['B', 'KB', 'MB', 'GB']
-  const i = Math.floor(Math.log(bytes) / Math.log(k))
-  return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i]
 }
 
 export default function DossierDetailPage() {
@@ -201,8 +172,8 @@ export default function DossierDetailPage() {
 
   if (status === 'loading' || loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+      <div className="flex min-h-screen items-center justify-center bg-background">
+        <div className="h-8 w-8 animate-spin rounded-full border-b-2 border-primary"></div>
       </div>
     )
   }
@@ -215,90 +186,204 @@ export default function DossierDetailPage() {
     (d) => d.statutDocument === 'EN_ATTENTE'
   )
 
+  const verdict = getVerdict(dossier.statutGlobal)
+  const isAnalyzed = ['VERT', 'ORANGE', 'ROUGE'].includes(dossier.statutGlobal)
+
+  const lastVerification = dossier.documents
+    .map((d) => d.dateVerification)
+    .filter((d): d is string => d !== null)
+    .sort()
+    .pop()
+
+  const analyzedDocuments = dossier.documents.filter(
+    (d) => d.statutDocument !== 'EN_ATTENTE'
+  )
+
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-background">
       <DashboardHeader />
 
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <main className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
         {/* Breadcrumb */}
         <div className="mb-6">
           <Link
             href="/dashboard"
             className="inline-flex items-center text-sm text-muted-foreground hover:text-foreground"
           >
-            <ArrowLeft className="h-4 w-4 mr-2" />
+            <ArrowLeft className="mr-2 h-4 w-4" />
             Retour aux dossiers
           </Link>
         </div>
 
-        {/* Header */}
-        <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4 mb-8">
-          <div className="flex items-start gap-4">
-            {getStatusIcon(dossier.statutGlobal)}
+        {/* Verdict héros : LE moment du produit */}
+        <section
+          aria-label="Verdict du dossier"
+          className={cn(
+            'mb-8 rounded-lg border-2 p-6 sm:p-10',
+            verdict.bg,
+            verdict.border
+          )}
+        >
+          <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
             <div>
-              <h1 className="text-2xl font-bold">{dossier.nomBien}</h1>
-              <p className="text-muted-foreground">{dossier.adresse}</p>
-              <p className="text-sm text-muted-foreground mt-1">
-                Créé le {formatDate(dossier.dateCreation)}
+              <p className={cn('text-sm font-medium uppercase tracking-widest', verdict.text)}>
+                Verdict DiagCheck
+              </p>
+              <h1
+                className={cn(
+                  'mt-2 font-serif text-4xl font-semibold tracking-tight sm:text-6xl',
+                  verdict.text
+                )}
+              >
+                {verdictHeadline(dossier.statutGlobal)}
+              </h1>
+              <p className="mt-3 max-w-2xl text-sm text-foreground/80 sm:text-base">
+                {verdictSubline(dossier.statutGlobal)}
+              </p>
+              <p className="mt-4 text-sm text-muted-foreground">
+                <span className="font-medium text-foreground">{dossier.nomBien}</span>
+                {' · '}
+                {dossier.adresse}
+                {' · '}
+                {isAnalyzed && lastVerification
+                  ? `analysé le ${formatDate(lastVerification)}`
+                  : `créé le ${formatDate(dossier.dateCreation)}`}
               </p>
             </div>
+            <div className="flex flex-wrap gap-3">
+              {pendingDocuments.length > 0 && (
+                <Button onClick={handleAnalyze} disabled={analyzing}>
+                  <Play className="mr-2 h-4 w-4" />
+                  {analyzing
+                    ? 'Analyse en cours...'
+                    : `Analyser (${pendingDocuments.length})`}
+                </Button>
+              )}
+              {isAnalyzed && (
+                <Button onClick={handleDownloadReport}>
+                  <Download className="mr-2 h-4 w-4" />
+                  Télécharger le rapport PDF
+                </Button>
+              )}
+            </div>
           </div>
-          <div className="flex flex-wrap gap-2">
-            <span
-              className={`px-4 py-2 text-sm font-medium rounded-full border ${getStatusBadgeClass(
-                dossier.statutGlobal
-              )}`}
-            >
-              {getStatusLabel(dossier.statutGlobal)}
-            </span>
-          </div>
-        </div>
+        </section>
 
-        {/* Actions */}
-        <div className="flex flex-wrap gap-3 mb-8">
-          <Button
-            onClick={handleAnalyze}
-            disabled={analyzing || pendingDocuments.length === 0}
-          >
-            <Play className="h-4 w-4 mr-2" />
-            {analyzing ? 'Analyse en cours...' : `Analyser (${pendingDocuments.length})`}
-          </Button>
-          <Button variant="outline" onClick={handleDownloadReport}>
-            <Download className="h-4 w-4 mr-2" />
-            Télécharger le rapport
-          </Button>
-          <Button
-            variant="outline"
-            onClick={() => setShowHistory(!showHistory)}
-          >
-            <History className="h-4 w-4 mr-2" />
+        {/* Actions secondaires */}
+        <div className="mb-8 flex flex-wrap gap-3">
+          {!isAnalyzed && (
+            <Button variant="outline" onClick={handleDownloadReport}>
+              <Download className="mr-2 h-4 w-4" />
+              Télécharger le rapport
+            </Button>
+          )}
+          <Button variant="outline" onClick={() => setShowHistory(!showHistory)}>
+            <History className="mr-2 h-4 w-4" />
             Historique
           </Button>
           <Button variant="destructive" onClick={handleDelete}>
-            <Trash2 className="h-4 w-4 mr-2" />
+            <Trash2 className="mr-2 h-4 w-4" />
             Supprimer
           </Button>
         </div>
 
-        <div className="grid lg:grid-cols-3 gap-8">
-          {/* Documents */}
-          <div className="lg:col-span-2 space-y-6">
+        <div className="grid gap-8 lg:grid-cols-3">
+          <div className="space-y-6 lg:col-span-2">
+            {/* Pourquoi ce verdict : l'explicabilité, règle par règle */}
+            {analyzedDocuments.length > 0 && (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="font-serif text-xl">
+                    Pourquoi ce verdict
+                  </CardTitle>
+                  <CardDescription>
+                    Chaque document est passé au moteur de règles déterministe.
+                    Les points ci-dessous expliquent le verdict, règle par règle :
+                    aucune boîte noire.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-3">
+                    {analyzedDocuments.map((doc) => {
+                      const docVerdict = getVerdict(doc.statutDocument)
+                      const problems = parseProblems(doc.problemesDetectes)
+                      return (
+                        <div
+                          key={doc.id}
+                          className={cn(
+                            'rounded-md border p-4',
+                            docVerdict.border,
+                            docVerdict.bg
+                          )}
+                        >
+                          <div className="flex flex-wrap items-center justify-between gap-2">
+                            <p className="font-medium">
+                              {documentTypeLabel(doc.typeDocument)}
+                              <span className="ml-2 text-sm font-normal text-muted-foreground">
+                                {doc.nomFichier}
+                              </span>
+                            </p>
+                            <VerdictBadge status={doc.statutDocument} />
+                          </div>
+                          {problems.length > 0 ? (
+                            <ul className="mt-3 space-y-1.5">
+                              {problems.map((problem, idx) => (
+                                <li
+                                  key={idx}
+                                  className={cn(
+                                    'flex items-start gap-2 text-sm',
+                                    docVerdict.text
+                                  )}
+                                >
+                                  <AlertCircle
+                                    className="mt-0.5 h-4 w-4 shrink-0"
+                                    aria-hidden="true"
+                                  />
+                                  {problem}
+                                </li>
+                              ))}
+                            </ul>
+                          ) : (
+                            <p
+                              className={cn(
+                                'mt-3 flex items-start gap-2 text-sm',
+                                docVerdict.text
+                              )}
+                            >
+                              <CheckCircle2
+                                className="mt-0.5 h-4 w-4 shrink-0"
+                                aria-hidden="true"
+                              />
+                              Aucun problème détecté par le moteur de règles.
+                            </p>
+                          )}
+                          {doc.dateVerification && (
+                            <p className="mt-2 text-xs text-muted-foreground">
+                              Vérifié le {formatDate(doc.dateVerification)}
+                            </p>
+                          )}
+                        </div>
+                      )
+                    })}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Documents */}
             <Card>
               <CardHeader>
-                <CardTitle>Documents ({dossier.documents.length})</CardTitle>
-                <CardDescription>
-                  Diagnostics immobiliers du dossier
-                </CardDescription>
+                <CardTitle className="font-serif text-xl">
+                  Documents ({dossier.documents.length})
+                </CardTitle>
+                <CardDescription>Diagnostics immobiliers du dossier</CardDescription>
               </CardHeader>
               <CardContent>
-                <DocumentUploader
-                  dossierId={dossierId}
-                  onUploadComplete={fetchDossier}
-                />
+                <DocumentUploader dossierId={dossierId} onUploadComplete={fetchDossier} />
 
                 {dossier.documents.length === 0 ? (
-                  <div className="text-center py-8 text-muted-foreground">
-                    <FileText className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                  <div className="py-8 text-center text-muted-foreground">
+                    <FileText className="mx-auto mb-4 h-12 w-12 opacity-50" />
                     <p>Aucun document uploadé</p>
                   </div>
                 ) : (
@@ -306,48 +391,27 @@ export default function DossierDetailPage() {
                     {dossier.documents.map((doc) => (
                       <div
                         key={doc.id}
-                        className="flex items-start gap-4 p-4 border rounded-lg"
+                        className="flex items-start gap-4 rounded-md border p-4"
                       >
-                        {getStatusIcon(doc.statutDocument)}
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2">
-                            <p className="font-medium truncate">{doc.nomFichier}</p>
-                            <span
-                              className={`px-2 py-0.5 text-xs rounded-full border ${getStatusBadgeClass(
-                                doc.statutDocument
-                              )}`}
-                            >
-                              {getStatusLabel(doc.statutDocument)}
-                            </span>
+                        <FileText
+                          className="mt-0.5 h-5 w-5 shrink-0 text-muted-foreground"
+                          aria-hidden="true"
+                        />
+                        <div className="min-w-0 flex-1">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <p className="truncate font-medium">{doc.nomFichier}</p>
+                            <VerdictBadge status={doc.statutDocument} />
                           </div>
                           <p className="text-sm text-muted-foreground">
-                            {doc.typeDocument || 'Type non détecté'} •{' '}
+                            {documentTypeLabel(doc.typeDocument)} ·{' '}
                             {formatFileSize(doc.tailleFichier)}
                           </p>
-                          {doc.problemesDetectes && (() => {
-                            const problems = typeof doc.problemesDetectes === 'string' 
-                              ? JSON.parse(doc.problemesDetectes) 
-                              : doc.problemesDetectes
-                            return problems.length > 0 && (
-                              <div className="mt-2">
-                                {problems.map((problem: string, idx: number) => (
-                                  <p
-                                    key={idx}
-                                    className="text-sm text-red-600 flex items-center gap-1"
-                                  >
-                                    <XCircle className="h-3 w-3" />
-                                    {problem}
-                                  </p>
-                                ))}
-                              </div>
-                            )
-                          })()}
                           {doc.dateVerification && (
-                            <p className="text-xs text-muted-foreground mt-1">
+                            <p className="mt-1 text-xs text-muted-foreground">
                               Vérifié le {formatDate(doc.dateVerification)}
                             </p>
                           )}
-                          <div className="flex gap-2 mt-3">
+                          <div className="mt-3 flex gap-2">
                             <Button
                               variant="outline"
                               size="sm"
@@ -356,25 +420,27 @@ export default function DossierDetailPage() {
                                 window.open(`/api/documents/${doc.id}/view`, '_blank')
                               }}
                             >
-                              <Eye className="h-3 w-3 mr-1" />
+                              <Eye className="mr-1 h-3 w-3" />
                               Voir
                             </Button>
                             <Button
                               variant="outline"
                               size="sm"
-                              className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                              className="text-verdict-rouge hover:bg-verdict-rouge-bg hover:text-verdict-rouge"
                               onClick={async (e) => {
                                 e.preventDefault()
                                 if (!confirm('Supprimer ce document ?')) return
                                 try {
-                                  const res = await fetch(`/api/documents/${doc.id}`, { method: 'DELETE' })
+                                  const res = await fetch(`/api/documents/${doc.id}`, {
+                                    method: 'DELETE',
+                                  })
                                   if (res.ok) fetchDossier()
                                 } catch (err) {
                                   console.error(err)
                                 }
                               }}
                             >
-                              <Trash2 className="h-3 w-3 mr-1" />
+                              <Trash2 className="mr-1 h-3 w-3" />
                               Supprimer
                             </Button>
                           </div>
@@ -392,7 +458,7 @@ export default function DossierDetailPage() {
             {/* Résumé */}
             <Card>
               <CardHeader>
-                <CardTitle>Résumé</CardTitle>
+                <CardTitle className="font-serif text-xl">Résumé</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="flex justify-between">
@@ -401,36 +467,36 @@ export default function DossierDetailPage() {
                 </div>
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Valides</span>
-                  <span className="font-medium text-green-600">
+                  <span className="font-medium text-verdict-vert">
                     {dossier.documents.filter((d) => d.statutDocument === 'VALIDE').length}
                   </span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-muted-foreground">À vérifier</span>
-                  <span className="font-medium text-amber-600">
+                  <span className="text-muted-foreground">Incertains</span>
+                  <span className="font-medium text-verdict-orange">
                     {dossier.documents.filter((d) => d.statutDocument === 'INCERTAIN').length}
                   </span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-muted-foreground">Non conformes</span>
-                  <span className="font-medium text-red-600">
+                  <span className="text-muted-foreground">Refusés</span>
+                  <span className="font-medium text-verdict-rouge">
                     {dossier.documents.filter((d) => d.statutDocument === 'REFUSE').length}
                   </span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">En attente</span>
-                  <span className="font-medium text-gray-600">
-                    {dossier.documents.filter((d) => d.statutDocument === 'EN_ATTENTE').length}
+                  <span className="font-medium text-verdict-attente">
+                    {pendingDocuments.length}
                   </span>
                 </div>
               </CardContent>
             </Card>
 
             {/* Mention légale */}
-            <Card className="bg-blue-50 border-blue-200">
+            <Card className="bg-secondary">
               <CardContent className="p-4">
-                <p className="text-xs text-blue-800">
-                  <strong>Avertissement :</strong> Outil d&apos;aide à la vérification
+                <p className="text-xs text-secondary-foreground">
+                  <strong>Avertissement :</strong> outil d&apos;aide à la vérification
                   documentaire. Ne se substitue pas à un audit réglementaire ou
                   juridique.
                 </p>
@@ -441,12 +507,12 @@ export default function DossierDetailPage() {
             {showHistory && (
               <Card>
                 <CardHeader>
-                  <CardTitle>Historique</CardTitle>
+                  <CardTitle className="font-serif text-xl">Historique</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="space-y-3 max-h-96 overflow-y-auto">
+                  <div className="max-h-96 space-y-3 overflow-y-auto">
                     {dossier.analyseLogs.map((log) => (
-                      <div key={log.id} className="text-sm border-b pb-2">
+                      <div key={log.id} className="border-b pb-2 text-sm">
                         <p className="font-medium">{log.action}</p>
                         <p className="text-xs text-muted-foreground">
                           {formatDate(log.createdAt)}
