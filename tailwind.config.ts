@@ -9,6 +9,10 @@ const config: Config = {
   ],
   theme: {
     extend: {
+      fontFamily: {
+        sans: ['var(--font-sans)', 'system-ui', 'sans-serif'],
+        serif: ['var(--font-serif)', 'Georgia', 'serif'],
+      },
       colors: {
         border: 'hsl(var(--border))',
         input: 'hsl(var(--input))',
@@ -35,10 +39,40 @@ const config: Config = {
           DEFAULT: 'hsl(var(--accent))',
           foreground: 'hsl(var(--accent-foreground))',
         },
+        card: {
+          DEFAULT: 'hsl(var(--card))',
+          foreground: 'hsl(var(--card-foreground))',
+        },
+        popover: {
+          DEFAULT: 'hsl(var(--popover))',
+          foreground: 'hsl(var(--popover-foreground))',
+        },
+        verdict: {
+          vert: {
+            DEFAULT: 'hsl(var(--verdict-vert))',
+            bg: 'hsl(var(--verdict-vert-bg))',
+            border: 'hsl(var(--verdict-vert-border))',
+          },
+          orange: {
+            DEFAULT: 'hsl(var(--verdict-orange))',
+            bg: 'hsl(var(--verdict-orange-bg))',
+            border: 'hsl(var(--verdict-orange-border))',
+          },
+          rouge: {
+            DEFAULT: 'hsl(var(--verdict-rouge))',
+            bg: 'hsl(var(--verdict-rouge-bg))',
+            border: 'hsl(var(--verdict-rouge-border))',
+          },
+          attente: {
+            DEFAULT: 'hsl(var(--verdict-attente))',
+            bg: 'hsl(var(--verdict-attente-bg))',
+            border: 'hsl(var(--verdict-attente-border))',
+          },
+        },
         status: {
-          valid: '#22c55e',
-          uncertain: '#f59e0b',
-          refused: '#ef4444',
+          valid: 'hsl(var(--verdict-vert))',
+          uncertain: 'hsl(var(--verdict-orange))',
+          refused: 'hsl(var(--verdict-rouge))',
         },
       },
       borderRadius: {
