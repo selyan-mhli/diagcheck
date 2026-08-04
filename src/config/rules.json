@@ -1,0 +1,202 @@
+{
+  "version": "1.0.0",
+  "rules": [
+    {
+      "id": "dpe",
+      "name": "Diagnostic de Performance Énergétique",
+      "documentTypes": ["DPE"],
+      "validityYears": 10,
+      "conditions": [
+        {
+          "type": "illegible",
+          "message": "Document DPE illisible",
+          "resultStatus": "REFUSE"
+        },
+        {
+          "type": "signature_missing",
+          "message": "Signature absente sur le DPE",
+          "resultStatus": "INCERTAIN"
+        },
+        {
+          "type": "field_missing",
+          "field": "date_etablissement",
+          "message": "Date d'établissement du DPE manquante",
+          "resultStatus": "INCERTAIN"
+        }
+      ]
+    },
+    {
+      "id": "amiante",
+      "name": "Diagnostic Amiante",
+      "documentTypes": ["AMIANTE"],
+      "validityYears": null,
+      "conditions": [
+        {
+          "type": "illegible",
+          "message": "Document Amiante illisible",
+          "resultStatus": "REFUSE"
+        },
+        {
+          "type": "signature_missing",
+          "message": "Signature absente sur le diagnostic Amiante",
+          "resultStatus": "INCERTAIN"
+        },
+        {
+          "type": "field_missing",
+          "field": "date_etablissement",
+          "message": "Date d'établissement du diagnostic Amiante manquante",
+          "resultStatus": "INCERTAIN"
+        }
+      ]
+    },
+    {
+      "id": "plomb",
+      "name": "Diagnostic Plomb (CREP)",
+      "documentTypes": ["PLOMB"],
+      "validityYears": 1,
+      "conditions": [
+        {
+          "type": "illegible",
+          "message": "Document Plomb illisible",
+          "resultStatus": "REFUSE"
+        },
+        {
+          "type": "signature_missing",
+          "message": "Signature absente sur le diagnostic Plomb",
+          "resultStatus": "INCERTAIN"
+        },
+        {
+          "type": "field_missing",
+          "field": "date_etablissement",
+          "message": "Date d'établissement du diagnostic Plomb manquante",
+          "resultStatus": "INCERTAIN"
+        }
+      ]
+    },
+    {
+      "id": "electricite",
+      "name": "Diagnostic Électricité",
+      "documentTypes": ["ELECTRICITE"],
+      "validityYears": 3,
+      "conditions": [
+        {
+          "type": "illegible",
+          "message": "Document Électricité illisible",
+          "resultStatus": "REFUSE"
+        },
+        {
+          "type": "signature_missing",
+          "message": "Signature absente sur le diagnostic Électricité",
+          "resultStatus": "INCERTAIN"
+        },
+        {
+          "type": "field_missing",
+          "field": "date_etablissement",
+          "message": "Date d'établissement du diagnostic Électricité manquante",
+          "resultStatus": "INCERTAIN"
+        }
+      ]
+    },
+    {
+      "id": "gaz",
+      "name": "Diagnostic Gaz",
+      "documentTypes": ["GAZ"],
+      "validityYears": 3,
+      "conditions": [
+        {
+          "type": "illegible",
+          "message": "Document Gaz illisible",
+          "resultStatus": "REFUSE"
+        },
+        {
+          "type": "signature_missing",
+          "message": "Signature absente sur le diagnostic Gaz",
+          "resultStatus": "INCERTAIN"
+        },
+        {
+          "type": "field_missing",
+          "field": "date_etablissement",
+          "message": "Date d'établissement du diagnostic Gaz manquante",
+          "resultStatus": "INCERTAIN"
+        }
+      ]
+    },
+    {
+      "id": "erp_esris",
+      "name": "État des Risques (ERP/ESRIS)",
+      "documentTypes": ["ERP_ESRIS"],
+      "validityYears": 0.5,
+      "conditions": [
+        {
+          "type": "illegible",
+          "message": "Document ERP/ESRIS illisible",
+          "resultStatus": "REFUSE"
+        },
+        {
+          "type": "signature_missing",
+          "message": "Signature absente sur l'ERP/ESRIS",
+          "resultStatus": "INCERTAIN"
+        },
+        {
+          "type": "field_missing",
+          "field": "date_etablissement",
+          "message": "Date d'établissement de l'ERP/ESRIS manquante",
+          "resultStatus": "INCERTAIN"
+        }
+      ]
+    },
+    {
+      "id": "carrez_boutin",
+      "name": "Loi Carrez / Boutin",
+      "documentTypes": ["LOI_CARREZ_BOUTIN"],
+      "validityYears": null,
+      "conditions": [
+        {
+          "type": "illegible",
+          "message": "Document Carrez/Boutin illisible",
+          "resultStatus": "REFUSE"
+        },
+        {
+          "type": "signature_missing",
+          "message": "Signature absente sur le mesurage Carrez/Boutin",
+          "resultStatus": "INCERTAIN"
+        },
+        {
+          "type": "field_missing",
+          "field": "lot_surface",
+          "message": "Surface non indiquée dans le document Carrez/Boutin",
+          "resultStatus": "REFUSE"
+        }
+      ]
+    }
+  ],
+  "globalRules": [
+    {
+      "id": "global_illegible",
+      "name": "Document illisible",
+      "condition": {
+        "type": "illegible",
+        "message": "Document illisible - vérification impossible",
+        "resultStatus": "REFUSE"
+      }
+    },
+    {
+      "id": "global_partially_illegible",
+      "name": "Document partiellement illisible",
+      "condition": {
+        "type": "partially_illegible",
+        "message": "Document partiellement illisible - vérification à confirmer",
+        "resultStatus": "INCERTAIN"
+      }
+    },
+    {
+      "id": "global_signature_uncertain",
+      "name": "Signature incertaine",
+      "condition": {
+        "type": "signature_uncertain",
+        "message": "Présence de signature incertaine",
+        "resultStatus": "INCERTAIN"
+      }
+    }
+  ]
+}

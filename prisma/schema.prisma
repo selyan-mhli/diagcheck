@@ -1,0 +1,59 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Agency {
+  id           String    @id @default(cuid())
+  email        String    @unique
+  passwordHash String
+  name         String
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  dossiers     Dossier[]
+}
+
+model Dossier {
+  id            String       @id @default(cuid())
+  nomBien       String
+  adresse       String
+  dateCreation  DateTime     @default(now())
+  statutGlobal  String       @default("EN_ATTENTE")
+  agencyId      String
+  agency        Agency       @relation(fields: [agencyId], references: [id], onDelete: Cascade)
+  documents     Document[]
+  analyseLogs   AnalyseLog[]
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+}
+
+model Document {
+  id                   String    @id @default(cuid())
+  dossierId            String
+  dossier              Dossier   @relation(fields: [dossierId], references: [id], onDelete: Cascade)
+  nomFichier           String
+  s3Key                String
+  fileHash             String
+  tailleFichier        Int
+  typeDocument         String?
+  statutDocument       String    @default("EN_ATTENTE")
+  extractionLlm        String?
+  resultatRegles       String?
+  problemesDetectes    String    @default("[]")
+  dateVerification     DateTime?
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
+}
+
+model AnalyseLog {
+  id           String   @id @default(cuid())
+  dossierId    String
+  dossier      Dossier  @relation(fields: [dossierId], references: [id], onDelete: Cascade)
+  action       String
+  details      String   @default("{}")
+  createdAt    DateTime @default(now())
+}
