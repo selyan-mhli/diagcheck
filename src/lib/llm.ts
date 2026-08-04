@@ -112,10 +112,12 @@ export async function extractDocumentData(
     return generateDemoExtraction(fileName || 'document.pdf')
   }
 
-  // Mode production : appel API Anthropic
+  // Mode production : appel API Anthropic.
+  // claude-sonnet-5 : remplaçant officiel de claude-sonnet-4 (déprécié). Le thinking
+  // adaptatif est actif par défaut et compte dans max_tokens, d'où la marge à 4096.
   const response = await anthropic!.messages.create({
-    model: 'claude-sonnet-4-20250514',
-    max_tokens: 2048,
+    model: 'claude-sonnet-5',
+    max_tokens: 4096,
     system: SYSTEM_PROMPT,
     messages: [
       {
