@@ -113,10 +113,13 @@ export async function extractDocumentData(
   }
 
   // Mode production : appel API Anthropic.
-  // claude-sonnet-5 : remplaçant officiel de claude-sonnet-4 (déprécié). Le thinking
-  // adaptatif est actif par défaut et compte dans max_tokens, d'où la marge à 4096.
+  // Modèle configurable via DIAGCHECK_LLM_MODEL. Défaut : claude-haiku-4-5, le
+  // moins cher (~2-3 centimes/document) et suffisant pour une extraction structurée,
+  // puisque la décision finale revient au moteur de règles déterministe. Pour plus
+  // de robustesse sur des scans dégradés : DIAGCHECK_LLM_MODEL=claude-sonnet-5
+  // (le thinking adaptatif y est actif par défaut et compte dans max_tokens).
   const response = await anthropic!.messages.create({
-    model: 'claude-sonnet-5',
+    model: process.env.DIAGCHECK_LLM_MODEL || 'claude-haiku-4-5',
     max_tokens: 4096,
     system: SYSTEM_PROMPT,
     messages: [
