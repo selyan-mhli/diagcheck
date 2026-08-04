@@ -5,18 +5,20 @@ import { useSession } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Plus, FileText, CheckCircle, AlertCircle, XCircle, Clock } from 'lucide-react'
+import { Card, CardContent } from '@/components/ui/card'
+import { Plus, FolderPlus, FileUp, ShieldCheck, FileText } from 'lucide-react'
 import { formatDate } from '@/lib/utils'
 import { DashboardHeader } from '@/components/dashboard-header'
 import { NewDossierDialog } from '@/components/new-dossier-dialog'
+import { VerdictBadge, getVerdict } from '@/components/verdict'
+import { cn } from '@/lib/utils'
 
 interface Document {
   id: string
   nomFichier: string
   typeDocument: string | null
   statutDocument: string
-  problemesDetectes: string[]
+  problemesDetectes: string[] | string
   dateVerification: string | null
 }
 
@@ -30,46 +32,31 @@ interface Dossier {
   _count: { documents: number }
 }
 
-function getStatusIcon(status: string) {
-  switch (status) {
-    case 'VERT':
-    case 'VALIDE':
-      return <CheckCircle className="h-5 w-5 text-green-500" />
-    case 'ORANGE':
-    case 'INCERTAIN':
-      return <AlertCircle className="h-5 w-5 text-amber-500" />
-    case 'ROUGE':
-    case 'REFUSE':
-      return <XCircle className="h-5 w-5 text-red-500" />
-    default:
-      return <Clock className="h-5 w-5 text-gray-400" />
-  }
-}
+const ONBOARDING_STEPS = [
+  {
+    Icon: FolderPlus,
+    title: 'Créez un dossier',
+    description:
+      'Un dossier correspond à un bien : nom du bien et adresse suffisent pour démarrer.',
+  },
+  {
+    Icon: FileUp,
+    title: 'Uploadez les diagnostics',
+    description:
+      'DPE, amiante, plomb, électricité, gaz, ERP... en PDF ou ZIP, tels que reçus du diagnostiqueur.',
+  },
+  {
+    Icon: ShieldCheck,
+    title: 'Obtenez le verdict',
+    description:
+      'Notre moteur de règles déterministe vérifie chaque document et rend un verdict explicable : Prêt à signer, À vérifier ou Non conforme.',
+  },
+] as const
 
-function getStatusLabel(status: string) {
-  switch (status) {
-    case 'VERT':
-      return 'Prêt à signer'
-    case 'ORANGE':
-      return 'À vérifier'
-    case 'ROUGE':
-      return 'Non conforme'
-    default:
-      return 'En attente'
-  }
-}
-
-function getStatusBadgeClass(status: string) {
-  switch (status) {
-    case 'VERT':
-      return 'bg-green-100 text-green-800 border-green-200'
-    case 'ORANGE':
-      return 'bg-amber-100 text-amber-800 border-amber-200'
-    case 'ROUGE':
-      return 'bg-red-100 text-red-800 border-red-200'
-    default:
-      return 'bg-gray-100 text-gray-800 border-gray-200'
-  }
+const CARD_ACCENT: Record<string, string> = {
+  VERT: 'border-l-verdict-vert',
+  ORANGE: 'border-l-verdict-orange',
+  ROUGE: 'border-l-verdict-rouge',
 }
 
 export default function DashboardPage() {
@@ -112,8 +99,8 @@ export default function DashboardPage() {
 
   if (status === 'loading' || loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+      <div className="flex min-h-screen items-center justify-center bg-background">
+        <div className="h-8 w-8 animate-spin rounded-full border-b-2 border-primary"></div>
       </div>
     )
   }
@@ -131,98 +118,150 @@ export default function DashboardPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-background">
       <DashboardHeader />
 
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Stats */}
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-8">
-          <Card>
-            <CardContent className="p-4">
-              <div className="text-2xl font-bold">{stats.total}</div>
-              <div className="text-sm text-muted-foreground">Total dossiers</div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="p-4">
-              <div className="text-2xl font-bold text-green-600">{stats.vert}</div>
-              <div className="text-sm text-muted-foreground">Prêts à signer</div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="p-4">
-              <div className="text-2xl font-bold text-amber-600">{stats.orange}</div>
-              <div className="text-sm text-muted-foreground">À vérifier</div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="p-4">
-              <div className="text-2xl font-bold text-red-600">{stats.rouge}</div>
-              <div className="text-sm text-muted-foreground">Non conformes</div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="p-4">
-              <div className="text-2xl font-bold text-gray-600">{stats.enAttente}</div>
-              <div className="text-sm text-muted-foreground">En attente</div>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Header avec bouton */}
-        <div className="flex justify-between items-center mb-6">
-          <h2 className="text-xl font-semibold">Mes dossiers</h2>
-          <Button onClick={() => setDialogOpen(true)}>
-            <Plus className="h-4 w-4 mr-2" />
-            Nouveau dossier
-          </Button>
-        </div>
-
-        {/* Liste des dossiers */}
+      <main className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
         {dossiers.length === 0 ? (
-          <Card>
-            <CardContent className="p-12 text-center">
-              <FileText className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-              <h3 className="text-lg font-medium mb-2">Aucun dossier</h3>
-              <p className="text-muted-foreground mb-4">
-                Créez votre premier dossier pour commencer à analyser vos diagnostics
+          /* État vide pédagogique : premier contact avec le produit */
+          <div className="mx-auto max-w-3xl py-8">
+            <div className="mb-10 text-center">
+              <h1 className="font-serif text-3xl font-semibold tracking-tight">
+                Bienvenue sur DiagCheck
+              </h1>
+              <p className="mx-auto mt-3 max-w-xl text-muted-foreground">
+                Vérifiez un dossier de diagnostics avant la signature, en trois
+                étapes.
               </p>
-              <Button onClick={() => setDialogOpen(true)}>
-                <Plus className="h-4 w-4 mr-2" />
-                Créer un dossier
-              </Button>
-            </CardContent>
-          </Card>
-        ) : (
-          <div className="grid gap-4">
-            {dossiers.map((dossier) => (
-              <Link key={dossier.id} href={`/dashboard/dossiers/${dossier.id}`}>
-                <Card className="hover:shadow-md transition-shadow cursor-pointer">
+            </div>
+
+            <div className="grid gap-4 sm:grid-cols-3">
+              {ONBOARDING_STEPS.map((step, index) => (
+                <Card key={step.title} className="relative overflow-hidden">
                   <CardContent className="p-6">
-                    <div className="flex items-start justify-between">
-                      <div className="flex items-start gap-4">
-                        {getStatusIcon(dossier.statutGlobal)}
-                        <div>
-                          <h3 className="font-semibold">{dossier.nomBien}</h3>
-                          <p className="text-sm text-muted-foreground">{dossier.adresse}</p>
-                          <p className="text-xs text-muted-foreground mt-1">
-                            Créé le {formatDate(dossier.dateCreation)} • {dossier._count.documents} document(s)
-                          </p>
-                        </div>
-                      </div>
-                      <span
-                        className={`px-3 py-1 text-xs font-medium rounded-full border ${getStatusBadgeClass(
-                          dossier.statutGlobal
-                        )}`}
-                      >
-                        {getStatusLabel(dossier.statutGlobal)}
-                      </span>
-                    </div>
+                    <span
+                      aria-hidden="true"
+                      className="font-serif text-4xl font-semibold text-muted-foreground/40"
+                    >
+                      {String(index + 1).padStart(2, '0')}
+                    </span>
+                    <step.Icon className="mt-4 h-6 w-6 text-primary" />
+                    <h2 className="mt-3 font-serif text-base font-semibold">
+                      {step.title}
+                    </h2>
+                    <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
+                      {step.description}
+                    </p>
                   </CardContent>
                 </Card>
-              </Link>
-            ))}
+              ))}
+            </div>
+
+            <div className="mt-10 text-center">
+              <Button size="lg" onClick={() => setDialogOpen(true)}>
+                <Plus className="mr-2 h-5 w-5" />
+                Créer mon premier dossier
+              </Button>
+              <p className="mt-4 text-xs text-muted-foreground">
+                Chaque verdict est expliqué règle par règle : aucune boîte noire.
+              </p>
+            </div>
           </div>
+        ) : (
+          <>
+            {/* Stats */}
+            <div className="mb-8 grid grid-cols-2 gap-4 md:grid-cols-5">
+              <Card>
+                <CardContent className="p-4">
+                  <div className="font-serif text-2xl font-semibold">{stats.total}</div>
+                  <div className="text-sm text-muted-foreground">Total dossiers</div>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardContent className="p-4">
+                  <div className="font-serif text-2xl font-semibold text-verdict-vert">
+                    {stats.vert}
+                  </div>
+                  <div className="text-sm text-muted-foreground">Prêts à signer</div>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardContent className="p-4">
+                  <div className="font-serif text-2xl font-semibold text-verdict-orange">
+                    {stats.orange}
+                  </div>
+                  <div className="text-sm text-muted-foreground">À vérifier</div>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardContent className="p-4">
+                  <div className="font-serif text-2xl font-semibold text-verdict-rouge">
+                    {stats.rouge}
+                  </div>
+                  <div className="text-sm text-muted-foreground">Non conformes</div>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardContent className="p-4">
+                  <div className="font-serif text-2xl font-semibold text-verdict-attente">
+                    {stats.enAttente}
+                  </div>
+                  <div className="text-sm text-muted-foreground">En attente</div>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Header avec bouton */}
+            <div className="mb-6 flex items-center justify-between">
+              <h1 className="font-serif text-xl font-semibold">Mes dossiers</h1>
+              <Button onClick={() => setDialogOpen(true)}>
+                <Plus className="mr-2 h-4 w-4" />
+                Nouveau dossier
+              </Button>
+            </div>
+
+            {/* Liste des dossiers */}
+            <div className="grid gap-4">
+              {dossiers.map((dossier) => {
+                const verdict = getVerdict(dossier.statutGlobal)
+                return (
+                  <Link key={dossier.id} href={`/dashboard/dossiers/${dossier.id}`}>
+                    <Card
+                      className={cn(
+                        'cursor-pointer border-l-4 transition-shadow hover:shadow-md',
+                        CARD_ACCENT[dossier.statutGlobal] ?? 'border-l-verdict-attente'
+                      )}
+                    >
+                      <CardContent className="p-6">
+                        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                          <div className="min-w-0">
+                            <h2 className="truncate font-serif text-lg font-semibold">
+                              {dossier.nomBien}
+                            </h2>
+                            <p className="truncate text-sm text-muted-foreground">
+                              {dossier.adresse}
+                            </p>
+                            <p className="mt-1 flex items-center gap-1.5 text-xs text-muted-foreground">
+                              <FileText className="h-3.5 w-3.5" aria-hidden="true" />
+                              {dossier._count.documents} document
+                              {dossier._count.documents > 1 ? 's' : ''} · créé le{' '}
+                              {formatDate(dossier.dateCreation)}
+                            </p>
+                          </div>
+                          <VerdictBadge
+                            status={dossier.statutGlobal}
+                            size="lg"
+                            className="shrink-0 self-start sm:self-center"
+                          />
+                        </div>
+                        <span className="sr-only">{verdict.label}</span>
+                      </CardContent>
+                    </Card>
+                  </Link>
+                )
+              })}
+            </div>
+          </>
         )}
       </main>
 
