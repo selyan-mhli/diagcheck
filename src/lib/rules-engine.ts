@@ -64,17 +64,31 @@ function normalizeDocumentType(type: string): string {
   return mapping[type.toLowerCase()] || 'AUTRE'
 }
 
-function isExpired(dateStr: string, validityYears: number): boolean {
+/**
+ * Ajoute des mois entiers à une date, sans débordement de fin de mois
+ * (31 août + 6 mois = 28 février, pas 3 mars). Les durées fractionnaires
+ * en années (ex. 0,5) sont converties en mois par l'appelant.
+ * Convention : un document est périmé seulement si "maintenant" est
+ * strictement postérieur à la date retournée.
+ */
+function addMonthsClamped(date: Date, months: number): Date {
+  const result = new Date(date)
+  const day = result.getDate()
+  result.setDate(1)
+  result.setMonth(result.getMonth() + months)
+  const lastDay = new Date(result.getFullYear(), result.getMonth() + 1, 0).getDate()
+  result.setDate(Math.min(day, lastDay))
+  return result
+}
+
+export function isExpired(dateStr: string, validityYears: number): boolean {
   if (!dateStr || dateStr === 'inconnu') return false
   
   try {
     const date = new Date(dateStr)
     if (isNaN(date.getTime())) return false
     
-    const expirationDate = new Date(date)
-    expirationDate.setFullYear(expirationDate.getFullYear() + validityYears)
-    
-    return new Date() > expirationDate
+    return new Date() > addMonthsClamped(date, Math.round(validityYears * 12))
   } catch {
     return false
   }
