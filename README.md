@@ -1,6 +1,6 @@
 # DiagCheck
 
-**SaaS B2B pour agences immobilières françaises** - Outil d'aide à la vérification documentaire de diagnostics immobiliers.
+**Outil gratuit et open source pour agences immobilières françaises** : aide à la vérification documentaire de diagnostics immobiliers.
 
 > ⚠️ **Avertissement** : Cet outil ne certifie jamais juridiquement la conformité. Il s'agit uniquement d'une aide à la vérification documentaire et ne se substitue pas à un audit réglementaire ou juridique.
 
@@ -333,7 +333,8 @@ Toute décision est :
 
 ## 📄 Licence
 
-Propriétaire - Tous droits réservés
+Gratuit et open source, sous licence MIT — voir [LICENSE](LICENSE).
+Contributions bienvenues : ouvrez une issue ou une pull request.
 
 ---
 
